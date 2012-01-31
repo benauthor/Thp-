@@ -1,5 +1,5 @@
 source :rubygems
 
-gem camping
-gem markaby
-gem librmpd
+gem "camping"
+gem "markaby"
+gem "librmpd"
