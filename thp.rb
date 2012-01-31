@@ -26,6 +26,15 @@ end
 
 
 module Thp::Controllers
+
+    class Static < R '/static/(.*)'
+      def get(static_name)
+        current_dir = File.expand_path(File.dirname(__FILE__))
+        @headers['Content-Type'] = "text/plain"
+        @headers['X-Sendfile'] = "#{current_dir}/static/#{static_name}"
+      end
+    end
+
     class Index < R '/'
         def get
             while_connected do |mpd|
@@ -50,12 +59,11 @@ module Thp::Controllers
             redirect Index
         end
 # will we be doing this by post instead later?
-#        def post
-#            while_connected do |mpd|
-#                mpd.play
-#            end
-#            redirect Index
-#        end
+        def post
+            while_connected do |mpd|
+                mpd.play
+            end
+        end
     end
 
     class PlaySong < R '/playsong/(\d+)'
@@ -74,6 +82,11 @@ module Thp::Controllers
             end
             redirect Index
         end
+        def post
+            while_connected do |mpd|
+                mpd.stop
+            end
+        end
     end
 
     class Pause
@@ -82,6 +95,11 @@ module Thp::Controllers
                 mpd.pause = !mpd.paused?
             end
             redirect Index
+        end
+        def post
+            while_connected do |mpd|
+                mpd.pause = !mpd.paused?
+            end
         end
     end
 
@@ -111,50 +129,98 @@ module Thp::Views
     def layout
         html do
             head do
+                script :src => "/static/zepto.min.js",
+                       :type => 'text/javascript' do
+                    #empty block because we need the close script tag
+                end
+                script :src => "/static/jqtouch.min.js",
+                       :type => 'text/javascript' do
+                end
+                link :rel => 'stylesheet', :type => 'text/css',
+                     :href => '/static/jqtouch.css', :media => 'screen'
                 title { "Thooop" }
+
+                script :type => 'text/javascript' do
+                    text <<-END_OF_STRING
+$.jQTouch({
+    icon: 'jqtouch.png',
+    statusBar: 'black-translucent',
+    preloadImages: []
+});
+                    END_OF_STRING
+                end
+
             end
             body { self << yield }
         end
     end
 
     def now_playing
-        h1.title @song.title
-        p.state @mpd_state
-        p.controls do
-            a '<<', :href => R(Previous)
-            text ' | '
-            a 'play', :href => R(Play)
-            text ' | '
-            a 'pause', :href => R(Pause)
-            text ' | '
-            a 'stop', :href => R(Stop)
-            text ' | '
-            a '>>', :href => R(Next)
-        end
-        div.playlist do
+        div.home! do
+            div.toolbar do
+                h1 "Thp!"
+                a.button 'playlist', :href => '#playlist'
+            end
+
+            h2.title @song.title
+            p.state @mpd_state
+
+            p.controls do
+                a '<<', :href => R(Previous)
+                text ' | '
+                a 'play', :href => R(Play)
+                text ' | '
+                a 'pause', :href => R(Pause)
+                text ' | '
+                a 'stop', :href => R(Stop)
+                text ' | '
+                a '>>', :href => R(Next)
+            end
+            # will we be doing this by post later?
             ul do
-            @playlist.each do |s|
-                li.song do
-                    p.title do
-                    a s.title, :href => R(PlaySong, s.id)
+                li do
+                    form :action => R(Play), :method => :post do
+                        input :type => :submit, :value => "Play"
                     end
-                    p.songmeta s.to_s
+                end
+                li do
+                    form :action => R(Pause), :method => :post do
+                        input :type => :submit, :value => "Pause"
+                    end
+                end
+                li do
+                    form :action => R(Stop), :method => :post do
+                        input :type => :submit, :value => "Stop"
+                    end
                 end
             end
-            end
-        end
-        div.meta do
-            p.status do
-                @mpd_status
-            end
-            p.stats do
-                @mpd_stats
+            div.info do
+                p.status do
+                    @mpd_status
+                end
+                p.stats do
+                    @mpd_stats
+                end
             end
         end
 
-# will we be doing this by post later?
-#        form :action => R(Play), :method => :post do
-#            input :type => :submit, :value => "Play"
-#        end
+
+
+        div.playlist! do
+            div.toolbar do
+                h1 "Playlist!"
+                a.button.back 'Back', :href => '#home'
+            end
+            ul.edgetoedge do
+                @playlist.each do |s|
+                    li.arrow do
+                        a s.title, :href => R(PlaySong, s.id)
+                        p s.artist
+                        p s.album
+                    end
+                end
+            end
+        end
+
     end
 end
