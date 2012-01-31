@@ -177,6 +177,7 @@ $.jQTouch({
             div.toolbar do
                 h1 "Thp!"
                 a.button 'Playlist', :href => '#playlist'
+                a.button.leftbutton.flip 'Info', :href => '#info'
             end
 
             h2.title @song.title #ajax this
@@ -210,11 +211,11 @@ $.jQTouch({
                     end
                 end
             end
-            ul.info.rounded do
-                li do
-                    a.flip 'Info', :href => '#info'
-                end
-            end
+#            ul.rounded do
+#                li do
+#                    a.leftbutton.flip 'Info', :href => '#info'
+#                end
+#            end
 #            div.info do
 #                p.status do
 #                    @mpd_status
