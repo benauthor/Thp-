@@ -58,11 +58,11 @@ module Thp::Controllers
             end
             redirect Index
         end
-# will we be doing this by post instead later?
         def post
             while_connected do |mpd|
                 mpd.play
             end
+            "Playing"
         end
     end
 
@@ -86,6 +86,7 @@ module Thp::Controllers
             while_connected do |mpd|
                 mpd.stop
             end
+            "Stopped"
         end
     end
 
@@ -100,6 +101,7 @@ module Thp::Controllers
             while_connected do |mpd|
                 mpd.pause = !mpd.paused?
             end
+            "Paused"
         end
     end
 
@@ -110,6 +112,13 @@ module Thp::Controllers
             end
             redirect Index
         end
+        def post
+            while_connected do |mpd|
+                mpd.previous
+            end
+            # maybe return song id so it can be updated
+            "previous"
+        end
     end
 
     class Next
@@ -119,6 +128,14 @@ module Thp::Controllers
                 mpd.playid(0) if mpd.current_song == nil
             end
             redirect Index
+        end
+        def post
+            while_connected do |mpd|
+                mpd.next
+                mpd.playid(0) if mpd.current_song == nil
+            end
+            # maybe return song id so it can be updated
+            "next"
         end
     end
 
@@ -159,25 +176,12 @@ $.jQTouch({
         div.home! do
             div.toolbar do
                 h1 "Thp!"
-                a.button 'playlist', :href => '#playlist'
+                a.button 'Playlist', :href => '#playlist'
             end
 
-            h2.title @song.title
-            p.state @mpd_state
-
-            p.controls do
-                a '<<', :href => R(Previous)
-                text ' | '
-                a 'play', :href => R(Play)
-                text ' | '
-                a 'pause', :href => R(Pause)
-                text ' | '
-                a 'stop', :href => R(Stop)
-                text ' | '
-                a '>>', :href => R(Next)
-            end
-            # will we be doing this by post later?
-            ul do
+            h2.title @song.title #ajax this
+#            p.state @mpd_state # need to ajax this
+            ul.rounded do
                 li do
                     form :action => R(Play), :method => :post do
                         input :type => :submit, :value => "Play"
@@ -194,14 +198,31 @@ $.jQTouch({
                     end
                 end
             end
-            div.info do
-                p.status do
-                    @mpd_status
+            ul.individual do
+                li do
+                    form :action => R(Previous), :method => :post do
+                        input :type => :submit, :value => "Previous"
+                    end
                 end
-                p.stats do
-                    @mpd_stats
+                li do
+                    form :action => R(Next), :method => :post do
+                        input :type => :submit, :value => "Next"
+                    end
                 end
             end
+            ul.info.rounded do
+                li do
+                    a.flip 'Info', :href => '#info'
+                end
+            end
+#            div.info do
+#                p.status do
+#                    @mpd_status
+#                end
+#                p.stats do
+#                    @mpd_stats
+#                end
+#            end
         end
 
 
@@ -222,5 +243,19 @@ $.jQTouch({
             end
         end
 
+        div.info! do
+            div.toolbar do
+                h1 "Info!"
+                a.button.back 'Back', :href => '#home'
+            end
+            ul.rounded do
+                li.status do
+                    @mpd_status
+                end
+                li.stats do
+                    @mpd_stats
+                end
+            end
+        end
     end
 end
