@@ -25,6 +25,36 @@ def while_connected
 end
 
 
+module Thp::Models
+    class Song < Base
+    end
+
+    class Playlist < Base
+    end
+
+    class BasicFields < V 1.0
+        def self.up
+            create_table Song.table_name do |t|
+                t.string :filename
+                t.string :title
+                t.string :artist
+                t.string :album
+                t.timestamps
+            end
+            create_table Playlist.table_name do |t|
+                t.string :filename
+                t.string :title
+                t.timestamps
+            end
+        end
+        def self.down
+            drop_table Song.table_name
+            drop_table Playlist.table_name
+        end
+    end
+end
+
+
 module Thp::Controllers
     class Index < R '/'
         def get
@@ -49,13 +79,6 @@ module Thp::Controllers
             end
             redirect Index
         end
-# will we be doing this by post instead later?
-#        def post
-#            while_connected do |mpd|
-#                mpd.play
-#            end
-#            redirect Index
-#        end
     end
 
     class PlaySong < R '/playsong/(\d+)'
@@ -151,10 +174,10 @@ module Thp::Views
                 @mpd_stats
             end
         end
-
-# will we be doing this by post later?
-#        form :action => R(Play), :method => :post do
-#            input :type => :submit, :value => "Play"
-#        end
     end
+end
+
+
+def Thp.create
+    Thp::Models.create_schema
 end
