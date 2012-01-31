@@ -32,10 +32,12 @@ module Thp::Controllers
                 mpd_status = mpd.status
                 @mpd_status = mpd_status.to_s
                 @mpd_state = mpd_status['state']
-                @song = mpd.current_song
-                @playlist = mpd.playlist.map { |s| s['title']}
 
-                render :status_view
+                @mpd_stats = mpd.stats.to_s
+                @song = mpd.current_song
+                @playlist = mpd.playlist
+
+                render :now_playing
             end
         end
     end
@@ -47,9 +49,19 @@ module Thp::Controllers
             end
             redirect Index
         end
-        def post
+# will we be doing this by post instead later?
+#        def post
+#            while_connected do |mpd|
+#                mpd.play
+#            end
+#            redirect Index
+#        end
+    end
+
+    class PlaySong < R '/playsong/(\d+)'
+        def get(number)
             while_connected do |mpd|
-                mpd.play
+                mpd.play(number)
             end
             redirect Index
         end
@@ -57,12 +69,6 @@ module Thp::Controllers
 
     class Stop
         def get
-            while_connected do |mpd|
-                mpd.stop
-            end
-            redirect Index
-        end
-        def post
             while_connected do |mpd|
                 mpd.stop
             end
@@ -92,6 +98,7 @@ module Thp::Controllers
         def get
             while_connected do |mpd|
                 mpd.next
+                mpd.playid(0) if mpd.current_song == nil
             end
             redirect Index
         end
@@ -110,7 +117,7 @@ module Thp::Views
         end
     end
 
-    def status_view
+    def now_playing
         h1.title @song.title
         p.state @mpd_state
         p.controls do
@@ -124,18 +131,30 @@ module Thp::Views
             text ' | '
             a '>>', :href => R(Next)
         end
-        p.playlist do
-        text "Current playlist: #{@playlist}"
+        div.playlist do
+            ul do
+            @playlist.each do |s|
+                li.song do
+                    p.title do
+                    a s.title, :href => R(PlaySong, s.id)
+                    end
+                    p.songmeta s.to_s
+                end
+            end
+            end
         end
-        p.meta do
-            @mpd_status
+        div.meta do
+            p.status do
+                @mpd_status
+            end
+            p.stats do
+                @mpd_stats
+            end
         end
 
+# will we be doing this by post later?
 #        form :action => R(Play), :method => :post do
 #            input :type => :submit, :value => "Play"
-#        end
-#        form :action => R(Stop), :method => :post do
-#            input :type => :submit, :value => "Stop"
 #        end
     end
 end
