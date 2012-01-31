@@ -2,8 +2,10 @@
 # play stop forward and back buttons
 # and maybe a 'whats next on the playlist' or something
 
-#then a song browser. model it on iphone/itunes. make it 
+# then a song browser. model ui/flow on ipod/itunes. make it 
 # searchable. jQuery. etc.
+
+# models: song, playlist, library.
 
 
 require 'rubygems'
@@ -12,23 +14,16 @@ require 'librmpd'
 #$host = 'localhost'
 #$port = 6600
 #$mpd = MPD.new $host, $port
-# i think we put this stuff in Thp.create??
+# put this stuff in Thp.create??
 
 Camping.goes :Thp
 
-# helpers
-
 def while_connected
-    begin
-        mpd = MPD.new
-        mpd.connect
-        yield mpd
-#    rescue
-#        "unable to connect to mpd"
-    end
+    mpd = MPD.new
+    mpd.connect
+    yield mpd
 end
 
-# Controllers
 
 module Thp::Controllers
     class Index < R '/'
@@ -38,6 +33,7 @@ module Thp::Controllers
                 @mpd_status = mpd_status.to_s
                 @mpd_state = mpd_status['state']
                 @song = mpd.current_song
+                @playlist = mpd.playlist.map { |s| s['title']}
 
                 render :status_view
             end
@@ -74,16 +70,35 @@ module Thp::Controllers
         end
     end
 
-    class Status
+    class Pause
         def get
             while_connected do |mpd|
-                mpd.status
+                mpd.pause = !mpd.paused?
             end
+            redirect Index
         end
     end
+
+    class Previous
+        def get
+            while_connected do |mpd|
+                mpd.previous
+            end
+            redirect Index
+        end
+    end
+
+    class Next
+        def get
+            while_connected do |mpd|
+                mpd.next
+            end
+            redirect Index
+        end
+    end
+
 end
 
-# Views
 
 module Thp::Views
     def layout
@@ -96,12 +111,21 @@ module Thp::Views
     end
 
     def status_view
-        h1 @song.title
-        p @mpd_state
+        h1.title @song.title
+        p.state @mpd_state
         p.controls do
+            a '<<', :href => R(Previous)
+            text ' | '
             a 'play', :href => R(Play)
             text ' | '
+            a 'pause', :href => R(Pause)
+            text ' | '
             a 'stop', :href => R(Stop)
+            text ' | '
+            a '>>', :href => R(Next)
+        end
+        p.playlist do
+        text "Current playlist: #{@playlist}"
         end
         p.meta do
             @mpd_status
