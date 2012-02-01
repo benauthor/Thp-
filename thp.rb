@@ -236,7 +236,7 @@ $.jQTouch({
             ul.edgetoedge do
                 @playlist.each do |s|
                     li.arrow do
-                        a s.title, :href => R(PlaySong, s.id)
+                        a s.title, :href => R(PlaySong, s.pos)
                         p s.artist
                         p s.album
                     end
