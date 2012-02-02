@@ -7,9 +7,13 @@
 
 # models: song, playlist, library.
 
+# make play/stop/pause buttons look better. and visual indication on click.
+
+# perhaps library browsing/playlist management is a seperate lil' app
 
 require 'rubygems'
 require 'librmpd'
+require 'json'
 
 #$host = 'localhost'
 #$port = 6600
@@ -18,10 +22,17 @@ require 'librmpd'
 
 Camping.goes :Thp
 
-def while_connected
-    mpd = MPD.new
-    mpd.connect
-    yield mpd
+
+module Thp::Helpers
+    def while_connected
+#        begin
+            mpd = MPD.new
+            mpd.connect
+            yield mpd
+#        rescue RuntimeError # this does funny things. gets stuck.
+#            'Bummer. There\'s a problem with mpd.'
+#        end
+    end
 end
 
 
@@ -32,6 +43,14 @@ module Thp::Controllers
         current_dir = File.expand_path(File.dirname(__FILE__))
         @headers['Content-Type'] = "text/plain"
         @headers['X-Sendfile'] = "#{current_dir}/static/#{static_name}"
+      end
+    end
+
+    class Image < R '/img/(.*)'
+      def get(static_name)
+        current_dir = File.expand_path(File.dirname(__FILE__))
+        @headers['Content-Type'] = "text/plain"
+        @headers['X-Sendfile'] = "#{current_dir}/img/#{static_name}"
       end
     end
 
@@ -56,7 +75,7 @@ module Thp::Controllers
             while_connected do |mpd|
                 mpd.play
             end
-            redirect Index
+            "Playing"
         end
         def post
             while_connected do |mpd|
@@ -70,8 +89,10 @@ module Thp::Controllers
         def get(number)
             while_connected do |mpd|
                 mpd.play(number)
+                @result = mpd.current_song.title
+                @headers['Content-Type'] = "application/json"
+                @result.to_json
             end
-            redirect Index
         end
     end
 
@@ -80,7 +101,7 @@ module Thp::Controllers
             while_connected do |mpd|
                 mpd.stop
             end
-            redirect Index
+            "Stopped"
         end
         def post
             while_connected do |mpd|
@@ -95,13 +116,13 @@ module Thp::Controllers
             while_connected do |mpd|
                 mpd.pause = !mpd.paused?
             end
-            redirect Index
+            "paused"
         end
         def post
             while_connected do |mpd|
                 mpd.pause = !mpd.paused?
             end
-            "Paused"
+            "paused"
         end
     end
 
@@ -110,7 +131,7 @@ module Thp::Controllers
             while_connected do |mpd|
                 mpd.previous
             end
-            redirect Index
+            "previous"
         end
         def post
             while_connected do |mpd|
@@ -127,7 +148,7 @@ module Thp::Controllers
                 mpd.next
                 mpd.playid(0) if mpd.current_song == nil
             end
-            redirect Index
+            "next"
         end
         def post
             while_connected do |mpd|
@@ -139,6 +160,12 @@ module Thp::Controllers
         end
     end
 
+    class Error
+        def get
+#            render :mpd_error
+            "There was an error connecting to mpd"
+        end
+    end
 end
 
 
@@ -153,20 +180,23 @@ module Thp::Views
                 script :src => "/static/jqtouch.min.js",
                        :type => 'text/javascript' do
                 end
-                link :rel => 'stylesheet', :type => 'text/css',
-                     :href => '/static/jqtouch.css', :media => 'screen'
-                title { "Thooop" }
-
-                script :type => 'text/javascript' do
-                    text <<-END_OF_STRING
-$.jQTouch({
-    icon: 'jqtouch.png',
-    statusBar: 'black-translucent',
-    preloadImages: []
-});
-                    END_OF_STRING
+#                script :src => "/static/jquery-1.7.min.js",
+#                       :type => 'text/javascript' do
+#                    #empty block because we need the close script tag
+#                end
+#                script :src => "/static/jqtouch-jquery.min.js",
+#                       :type => 'text/javascript' do
+#                end
+                script :src => "/static/thp.js",
+                       :type => 'text/javascript' do
                 end
 
+                link :rel => 'stylesheet', :type => 'text/css',
+                     :href => '/static/jqtouch.css', :media => 'screen'
+                link :rel => 'stylesheet', :type => 'text/css',
+                     :href => '/static/jqt.css', :media => 'screen'
+
+                title { "Thp!" }
             end
             body { self << yield }
         end
@@ -180,34 +210,25 @@ $.jQTouch({
                 a.button.leftbutton.flip 'Info', :href => '#info'
             end
 
-            h2.title @song.title #ajax this
+             #ajax this
 #            p.state @mpd_state # need to ajax this
             ul.rounded do
                 li do
-                    form :action => R(Play), :method => :post do
-                        input :type => :submit, :value => "Play"
-                    end
+                    h2.songtitle! @song.title 
                 end
                 li do
-                    form :action => R(Pause), :method => :post do
-                        input :type => :submit, :value => "Pause"
-                    end
+                    a.greenbutton 'Play', :href => R(Play)
+                    a.whitebutton 'Pause', :href => R(Pause)
+                    a.redbutton 'Stop', :href => R(Stop)
                 end
                 li do
-                    form :action => R(Stop), :method => :post do
-                        input :type => :submit, :value => "Stop"
-                    end
-                end
-            end
-            ul.individual do
-                li do
-                    form :action => R(Previous), :method => :post do
-                        input :type => :submit, :value => "Previous"
-                    end
-                end
-                li do
-                    form :action => R(Next), :method => :post do
-                        input :type => :submit, :value => "Next"
+                    ul.individual do
+                        li do
+                            a.graybutton 'Previous', :href => R(Previous)
+                        end
+                        li do
+                            a.graybutton 'Next', :href => R(Next)
+                        end
                     end
                 end
             end
@@ -236,9 +257,11 @@ $.jQTouch({
             ul.edgetoedge do
                 @playlist.each do |s|
                     li.arrow do
-                        a s.title, :href => R(PlaySong, s.pos)
+                        a.playsong :href => R(PlaySong, s.pos) do
+                        h2.title s.title
                         p s.artist
                         p s.album
+                        end
                     end
                 end
             end
@@ -250,11 +273,16 @@ $.jQTouch({
                 a.button.back 'Back', :href => '#home'
             end
             ul.rounded do
+                li.about do
+                    h2 "Thp! is a little mpd client made in Camping."
+                end
                 li.status do
-                    @mpd_status
+                    h2 "mpd status"
+                    p @mpd_status
                 end
                 li.stats do
-                    @mpd_stats
+                    h2 "mpd stats"
+                    p @mpd_stats
                 end
             end
         end
