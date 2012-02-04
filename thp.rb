@@ -214,7 +214,7 @@ module Thp::Views
 #            p.state @mpd_state # need to ajax this
             ul.rounded do
                 li do
-                    h2.songtitle! @song.title 
+                    h2.songtitle @song.title 
                 end
                 li do
                     a.greenbutton 'Play', :href => R(Play)
@@ -255,13 +255,18 @@ module Thp::Views
                 a.button.back 'Back', :href => '#home'
             end
             ul.edgetoedge do
+                li do
+                    text "Now playing: "
+                    span.songtitle
+                end
                 @playlist.each do |s|
-                    li.arrow do
-                        a.playsong :href => R(PlaySong, s.pos) do
+                    li.arrow.playsong do
+#                        a.playsong :href => R(PlaySong, s.pos) do
                         h2.title s.title
+                        p.id s.pos
                         p s.artist
                         p s.album
-                        end
+#                        end
                     end
                 end
             end

@@ -9,13 +9,18 @@ $(function(){
     $('#home').bind('touchmove',function(){
         event.preventDefault();
     });
+    // Prevent wierd stuck buttons. TODO: improve this behavior
     $('a').mouseout(function(){
                     $(this).removeClass('active');
                     return false;
                 });
-    $('a.playsong').bind('tap', function(event){
+    // Playlist action
+    $('li.playsong').bind('tap', function(event){
                     var title = $(this).children('h2').text();
-                    $('#songtitle').text(title);
+                    var id = $(this).children('p.id').text()
+                    $.get('playsong/' + id, function(data) {
+                        $('.songtitle').html(data);
+                    });
                 });
 });
 
