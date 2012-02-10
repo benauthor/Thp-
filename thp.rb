@@ -45,6 +45,10 @@ module Thp::Controllers
     class Static < R '/static/(.*)'
       def get(static_name)
         current_dir = File.expand_path(File.dirname(__FILE__))
+        # TODO: quick and dirty mime type detection. this should be improved
+        extension = static_name[/\.(css|js)$/]
+        mime_types = {".css"=>"css", ".js"=>"javascript"}
+        mime_type = mime_types[extension]
         @headers['Content-Type'] = "text/plain"
         @headers['X-Sendfile'] = "#{current_dir}/static/#{static_name}"
       end
@@ -99,7 +103,8 @@ module Thp::Controllers
     class Status
         def get
             return_json do |mpd|
-                @result = mpd.status.to_s
+                @result = mpd.status
+                @result['current_song'] = mpd.current_song.title
             end
         end
     end
@@ -107,7 +112,7 @@ module Thp::Controllers
     class Stats
         def get
             return_json do |mpd|
-                @result = mpd.stats.to_s
+                @result = mpd.stats
             end
         end
     end
@@ -177,13 +182,6 @@ module Thp::Views
                 script :src => "/static/jqtouch.min.js",
                        :type => 'text/javascript' do
                 end
-#                script :src => "/static/jquery-1.7.min.js",
-#                       :type => 'text/javascript' do
-#                    #empty block because we need the close script tag
-#                end
-#                script :src => "/static/jqtouch-jquery.min.js",
-#                       :type => 'text/javascript' do
-#                end
                 script :src => "/static/thp.js",
                        :type => 'text/javascript' do
                 end
@@ -207,8 +205,6 @@ module Thp::Views
                 a.button.leftbutton.flip 'Info', :href => '#info'
             end
 
-             #ajax this
-#            p.state @mpd_state # need to ajax this
             ul.rounded do
                 li do
                     if @song == nil
@@ -233,19 +229,6 @@ module Thp::Views
                     end
                 end
             end
-#            ul.rounded do
-#                li do
-#                    a.leftbutton.flip 'Info', :href => '#info'
-#                end
-#            end
-#            div.info do
-#                p.status do
-#                    @mpd_status
-#                end
-#                p.stats do
-#                    @mpd_stats
-#                end
-#            end
         end
 
 
@@ -262,12 +245,10 @@ module Thp::Views
                 end
                 @playlist.each do |s|
                     li.playsong do
-#                        a.playsong :href => R(PlaySong, s.pos) do
                         h2.title s.title
                         p.id s.pos
                         p s.artist
                         p s.album
-#                        end
                     end
                 end
             end

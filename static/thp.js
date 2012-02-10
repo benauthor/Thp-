@@ -22,5 +22,12 @@ $(function(){
                         $('.songtitle').html(data);
                     });
                 });
+    // Refresh song title every 3 seconds
+    setInterval(function() {
+        $.get("status/", function(data) {
+            var display = JSON.parse(data);
+            $('.songtitle').html(display.current_song);
+        });
+    }, 3000);
 });
 
