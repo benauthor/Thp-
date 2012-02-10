@@ -25,13 +25,17 @@ Camping.goes :Thp
 
 module Thp::Helpers
     def while_connected
-#        begin
-            mpd = MPD.new
-            mpd.connect
+        mpd = MPD.new
+        mpd.connect
+        yield mpd
+    end
+
+    def return_json
+        while_connected do |mpd|
             yield mpd
-#        rescue RuntimeError # this does funny things. gets stuck.
-#            'Bummer. There\'s a problem with mpd.'
-#        end
+            @headers['Content-Type'] = "application/json"
+            @result.to_json
+        end
     end
 end
 
@@ -49,7 +53,11 @@ module Thp::Controllers
     class Image < R '/img/(.*)'
       def get(static_name)
         current_dir = File.expand_path(File.dirname(__FILE__))
-        @headers['Content-Type'] = "text/plain"
+        # TODO: quick and dirty mime type detection. this should be improved
+        extension = static_name[/\.(gif|jpg|png)$/]
+        mime_types = {".jpg"=>"jpeg", ".gif"=>"gif", ".png"=>"png"}
+        mime_type = mime_types[extension]
+        @headers['Content-Type'] = "image/" + mime_type
         @headers['X-Sendfile'] = "#{current_dir}/img/#{static_name}"
       end
     end
@@ -72,91 +80,80 @@ module Thp::Controllers
 
     class Play
         def get
-            while_connected do |mpd|
+            return_json do |mpd|
                 mpd.play
+                @result = mpd.current_song.title
             end
-            "Playing"
-        end
-        def post
-            while_connected do |mpd|
-                mpd.play
-            end
-            "Playing"
         end
     end
 
     class PlaySong < R '/playsong/(\d+)'
         def get(number)
-            while_connected do |mpd|
+            return_json do |mpd|
                 mpd.play(number)
                 @result = mpd.current_song.title
-                @headers['Content-Type'] = "application/json"
-                @result.to_json
+            end
+        end
+    end
+
+    class Status
+        def get
+            return_json do |mpd|
+                @result = mpd.status.to_s
+            end
+        end
+    end
+
+    class Stats
+        def get
+            return_json do |mpd|
+                @result = mpd.stats.to_s
             end
         end
     end
 
     class Stop
         def get
-            while_connected do |mpd|
+            return_json do |mpd|
                 mpd.stop
+                @result = "Stopped"
             end
-            "Stopped"
-        end
-        def post
-            while_connected do |mpd|
-                mpd.stop
-            end
-            "Stopped"
         end
     end
 
     class Pause
         def get
-            while_connected do |mpd|
-                mpd.pause = !mpd.paused?
+            return_json do |mpd|
+                paused = mpd.paused?
+                mpd.pause = !paused
+                if paused == false
+                    @result = "Paused"
+                else
+                    @result = mpd.current_song.title
+                end
             end
-            "paused"
-        end
-        def post
-            while_connected do |mpd|
-                mpd.pause = !mpd.paused?
-            end
-            "paused"
         end
     end
 
     class Previous
         def get
-            while_connected do |mpd|
+            return_json do |mpd|
                 mpd.previous
+                @result = mpd.current_song.title
             end
-            "previous"
-        end
-        def post
-            while_connected do |mpd|
-                mpd.previous
-            end
-            # maybe return song id so it can be updated
-            "previous"
         end
     end
 
     class Next
         def get
-            while_connected do |mpd|
+            return_json do |mpd|
                 mpd.next
-                mpd.playid(0) if mpd.current_song == nil
+                if mpd.current_song != nil
+                    @result = mpd.current_song.title
+                else
+                    @result = "Stopped"
+                end
             end
-            "next"
-        end
-        def post
-            while_connected do |mpd|
-                mpd.next
-                mpd.playid(0) if mpd.current_song == nil
-            end
-            # maybe return song id so it can be updated
-            "next"
         end
     end
 
@@ -214,7 +211,11 @@ module Thp::Views
 #            p.state @mpd_state # need to ajax this
             ul.rounded do
                 li do
-                    h2.songtitle @song.title 
+                    if @song == nil
+                        p.songtitle "Thp!!"
+                    else
+                        p.songtitle @song.title
+                    end
                 end
                 li do
                     a.greenbutton 'Play', :href => R(Play)
@@ -260,7 +261,7 @@ module Thp::Views
                     span.songtitle
                 end
                 @playlist.each do |s|
-                    li.arrow.playsong do
+                    li.playsong do
 #                        a.playsong :href => R(PlaySong, s.pos) do
                         h2.title s.title
                         p.id s.pos
